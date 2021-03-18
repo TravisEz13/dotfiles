@@ -1,32 +1,51 @@
-#region Update PowerShell Daily
 
-$updateJob = Start-ThreadJob -ScriptBlock {
-    Invoke-Expression "& {$(Invoke-RestMethod aka.ms/install-powershell.ps1)} -Daily"
+#Enable concise errorview for PS7 and up
+if ($psversiontable.psversion.major -ge 7) {
+    $ErrorView = 'ConciseView'
 }
 
-$eventJob = Register-ObjectEvent -InputObject $updateJob -EventName StateChanged -Action {
-    if($Event.Sender.State -eq [System.Management.Automation.JobState]::Completed) {
-    	Get-EventSubscriber $eventJob.Name | Unregister-Event
-	    Remove-Job $eventJob -ErrorAction SilentlyContinue
-    	Receive-Job $updateJob -Wait -AutoRemoveJob -ErrorAction SilentlyContinue
+#Enable AzPredictor if present
+if ((Get-Module psreadline).Version -gt 2.1.99 -and (Get-Command 'Enable-AzPredictor' -ErrorAction SilentlyContinue)) {
+    Enable-AzPredictor
+}
+
+#Enable new fancy progress bar
+if ($psversiontable.psversion.major -ge '7.2.0') {
+    Enable-ExperimentalFeature PSAnsiProgress,PSAnsiRendering -WarningAction SilentlyContinue
+    #Windows Terminal
+    if ($ENV:WT_SESSION) {
+        $PSStyle.Progress.UseOSCIndicator = $true
     }
 }
 
-#endregion
 
-#region Theme config
+#Starship Prompt
+if (Get-Command starship -CommandType Application -ErrorAction SilentlyContinue) {
+    #Separate Prompt for vscode. We don't use the profile so this works for both integrated and external terminal modes
+    if ($ENV:VSCODE_GIT_IPC_HANDLE) {
+        $ENV:STARSHIP_CONFIG = "$HOME\.config\starship-vscode.toml"
+    }
+    #Get Starship Prompt Initializer
+    [string]$starshipPrompt = (& starship init powershell --print-full-init) -join "`n"
 
-if (Get-Module PSReadLine) {
-    Import-Module posh-git
-    Import-Module oh-my-posh
-    $ThemeSettings.MyThemesLocation = "~/.config/powershell/oh-my-posh/Themes"
-    Set-Theme Sorin-NL
+    #Kludge: Take a common line and add a suffix to it
+    $stubToReplace = 'prompt {'
+    $replaceShim = {
+        $env:STARSHIP_ENVVAR = if (Test-Path Variable:/PSDebugContext) {
+            "`u{1f41e}"
+        } else {
+            $null
+        }
+    }
 
-    Set-PSReadLineKeyHandler -Chord Alt+Enter -Function AddLine
-    Set-PSReadLineOption -ContinuationPrompt "  " -Colors @{ Operator = "`e[95m"; Parameter = "`e[95m" }
+    $starshipPrompt = $starshipPrompt -replace 'prompt \{',"prompt { $($replaceShim.ToString())"
+    if ($starshipPrompt -notmatch 'STARSHIP_ENVVAR') { Write-Error 'Starship shimming failed, check $profile' }
+
+    . ([ScriptBlock]::create($starshipPrompt))
+    if ((Get-Module PSReadline).Version -ge '2.1.0') {
+        Set-PSReadLineOption -PromptText "`e[32m❯ ", '❯ '
+    }
 }
-
-#endregion
 
 #region Helper functions
 
