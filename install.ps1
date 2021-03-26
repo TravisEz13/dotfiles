@@ -7,3 +7,9 @@ Get-ChildItem -Path $configPath | ForEach-Object {
 
 Install-Module PSDepend -Force
 Invoke-PSDepend -Force (Join-Path $PSScriptRoot 'requirements.psd1')
+
+wget https://github.com/twpayne/chezmoi/releases/download/v2.0.4/chezmoi_2.0.4_linux_amd64.deb
+chmod a+r ./chezmoi_2.0.4_linux_amd64.deb
+apt update
+apt install ./chezmoi_2.0.4_linux_amd64.deb
+chezmoi init --apply travisez13
