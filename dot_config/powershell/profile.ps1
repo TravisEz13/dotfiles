@@ -10,6 +10,83 @@ if ($psversiontable.psversion.major -ge 7) {
     $ErrorView = 'ConciseView'
 }
 
+if (!$IsWindows) {
+    #Other terminal bindings
+    # Alt+Shift+ArrowLeft to \033b
+    # Alt+Shift+ArrowLeft to \033B
+    # Alt+Shift+ArrowRight to \033f
+    # Alt+Shift+ArrowRight to \033F
+
+    Set-PSReadlineKeyHandler -Chord Escape -Function RevertLine # No terminal binding needed
+    Set-PSReadlineKeyHandler -Chord Alt+H -Function BeginningOfLine #Home in terminal bound to \033h
+    Set-PSReadlineKeyHandler -Chord Alt+Shift+H -Function SelectBackwardsLine  #Shift+Home in terminal bound to \033H
+    Set-PSReadlineKeyHandler -Chord Alt+E -Function EndOfLine #End in terminal bound to \033e
+    Set-PSReadlineKeyHandler -Chord Alt+Shift+E -Function SelectLine  #Shift+End in terminal bound to \033E
+    Set-PSReadlineKeyHandler -Chord Alt+8 -Function HistorySearchBackward
+    Set-PSReadLineKeyHandler -Chord alt+enter -Function addline
+    Set-PSReadLineKeyHandler -Function SwitchPredictionView -Chord f2
+    Set-PSReadLineOption -PredictionSource History
+
+    $dotnetcli = Join-Path -Path $userProfile -ChildPath '.dotnet'
+    if (Test-Path $dotnetcli ) {
+        if ($env:PATH -notcontains $dotnetcli) {
+            $env:PATH = $env:PATH + ':' + $dotnetcli
+        }
+    }
+
+    $env:DOTNET_ROOT=(split-path (gcm dotnet).Source)
+
+    if ($IsMacOS) {
+        if ($env:PATH -notmatch '\b/usr/local/bin\b') {
+            # prevent repeated replacement of $env:PATH
+            function setenv ($variable, $value) { [Environment]::SetEnvironmentVariable($variable, $value)  }
+            # `/usr/libexec/path_helper -c` conveniently outputs something like 'setenv PATH "/usr/local/bin:..."',
+            # which we can pass to Invoke-Expression, which then calls our transient `setenv()` function.
+            Invoke-Expression $(/usr/libexec/path_helper -c)
+            $env:PATH = "${pshome}:$env:PATH"
+        }
+
+        $env:PATH="${env:PATH}:/Users/travisplunk/.dotnet/tools"
+        $env:HOMEBREW_EDITOR='code'
+        $env:EDITOR='nano'
+    }
+
+    function script:precheck
+    {
+        param([string]$command, [string]$missedMessage)
+
+        $c = Get-Command $command -ErrorAction Ignore
+        if (-not $c) {
+            if (-not [string]::IsNullOrEmpty($missedMessage))
+            {
+                Write-Warning $missedMessage
+            }
+            return $false
+        } else {
+            return $true
+        }
+    }
+
+    Function Find-MyDotNet
+    {
+        $originalPath = $env:PATH
+        $dotnetPath = if ($Environment.IsWindows) { "$env:LocalAppData\Microsoft\dotnet" } else { "$env:HOME/.dotnet" }
+
+        # If there dotnet is already in the PATH, check to see if that version of dotnet can find the required SDK
+        # This is "typically" the globally installed dotnet
+        if (!(script:precheck dotnet)) {
+            Write-Warning "Could not find 'dotnet', appending $dotnetPath to PATH."
+            $env:PATH =   $dotnetPath + [IO.Path]::PathSeparator + $env:PATH
+        }
+
+        if (-not (precheck 'dotnet' "Still could not find 'dotnet', restoring PATH.")) {
+            $env:PATH = $originalPath
+        }
+    }
+    Find-MyDotNet
+}
+
+
 # #Enable AzPredictor if present
 # if ((Get-Module psreadline).Version -gt 2.1.99 -and (Get-Command 'Enable-AzPredictor' -ErrorAction SilentlyContinue)) {
 #     Enable-AzPredictor
@@ -93,9 +170,9 @@ Import-Module Microsoft.PowerShell.UnixCompleters -ErrorAction SilentlyContinue
 
 # Set CurrentDirectory when LocationChangedAction is invoked.
 # This allows iTerm2's "Reuse previous session's directory" to work
-$ExecutionContext.SessionState.InvokeCommand.LocationChangedAction += {
-    [Environment]::CurrentDirectory = $pwd.ProviderPath
-}
+# $ExecutionContext.SessionState.InvokeCommand.LocationChangedAction += {
+#     [Environment]::CurrentDirectory = $pwd.ProviderPath
+# }
 
 #endregion
 
@@ -105,6 +182,7 @@ $ExecutionContext.SessionState.InvokeCommand.LocationChangedAction += {
 #endregion
 
 #region Start up
+
 
 if (Test-Path "/Applications/Remove Sophos Endpoint.app") {
     # Since it's a .app, the best we can do is pop the GUI
@@ -138,81 +216,7 @@ function Clear-PSRepository {
 if ($null -eq $IsWindows) {
     $IsWindows = $true
 }
-if (!$IsWindows) {
-    #Other terminal bindings
-    # Alt+Shift+ArrowLeft to \033b
-    # Alt+Shift+ArrowLeft to \033B
-    # Alt+Shift+ArrowRight to \033f
-    # Alt+Shift+ArrowRight to \033F
 
-    Set-PSReadlineKeyHandler -Chord Escape -Function RevertLine # No terminal binding needed
-    Set-PSReadlineKeyHandler -Chord Alt+H -Function BeginningOfLine #Home in terminal bound to \033h
-    Set-PSReadlineKeyHandler -Chord Alt+Shift+H -Function SelectBackwardsLine  #Shift+Home in terminal bound to \033H
-    Set-PSReadlineKeyHandler -Chord Alt+E -Function EndOfLine #End in terminal bound to \033e
-    Set-PSReadlineKeyHandler -Chord Alt+Shift+E -Function SelectLine  #Shift+End in terminal bound to \033E
-    Set-PSReadlineKeyHandler -Chord Alt+8 -Function HistorySearchBackward
-    Set-PSReadLineKeyHandler -Chord alt+enter -Function addline
-    Set-PSReadLineKeyHandler -Function SwitchPredictionView -Chord f2
-    Set-PSReadLineOption -PredictionSource History
-
-    $dotnetcli = Join-Path -Path $userProfile -ChildPath '.dotnet'
-    if (Test-Path $dotnetcli ) {
-        if ($env:PATH -notcontains $dotnetcli) {
-            $env:PATH = $env:PATH + ':' + $dotnetcli
-        }
-    }
-
-    $env:DOTNET_ROOT=(split-path (gcm dotnet).Source)
-
-    if ($IsMacOS) {
-        if ($env:PATH -notmatch '\b/usr/local/bin\b') {
-            # prevent repeated replacement of $env:PATH
-            function setenv ($variable, $value) { [Environment]::SetEnvironmentVariable($variable, $value)  }
-            # `/usr/libexec/path_helper -c` conveniently outputs something like 'setenv PATH "/usr/local/bin:..."',
-            # which we can pass to Invoke-Expression, which then calls our transient `setenv()` function.
-            Invoke-Expression $(/usr/libexec/path_helper -c)
-            $env:PATH = "${pshome}:$env:PATH"
-        }
-
-        $env:PATH="${env:PATH}:/Users/travisplunk/.dotnet/tools"
-        $env:HOMEBREW_EDITOR='code'
-        $env:EDITOR='nano'
-    }
-
-    function script:precheck
-    {
-        param([string]$command, [string]$missedMessage)
-
-        $c = Get-Command $command -ErrorAction Ignore
-        if (-not $c) {
-            if (-not [string]::IsNullOrEmpty($missedMessage))
-            {
-                Write-Warning $missedMessage
-            }
-            return $false
-        } else {
-            return $true
-        }
-    }
-
-    Function Find-MyDotNet
-    {
-        $originalPath = $env:PATH
-        $dotnetPath = if ($Environment.IsWindows) { "$env:LocalAppData\Microsoft\dotnet" } else { "$env:HOME/.dotnet" }
-
-        # If there dotnet is already in the PATH, check to see if that version of dotnet can find the required SDK
-        # This is "typically" the globally installed dotnet
-        if (!(script:precheck dotnet)) {
-            Write-Warning "Could not find 'dotnet', appending $dotnetPath to PATH."
-            $env:PATH =   $dotnetPath + [IO.Path]::PathSeparator + $env:PATH
-        }
-
-        if (-not (precheck 'dotnet' "Still could not find 'dotnet', restoring PATH.")) {
-            $env:PATH = $originalPath
-        }
-    }
-    Find-MyDotNet
-}
 
 function Set-ConstrainedLanguageMode
 {
