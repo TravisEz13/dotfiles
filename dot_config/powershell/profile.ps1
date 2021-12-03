@@ -24,7 +24,7 @@ if (!$IsWindows) {
     Set-PSReadlineKeyHandler -Chord Alt+Shift+E -Function SelectLine  #Shift+End in terminal bound to \033E
     Set-PSReadlineKeyHandler -Chord Alt+8 -Function HistorySearchBackward
     Set-PSReadLineKeyHandler -Chord alt+enter -Function addline
-    Set-PSReadLineKeyHandler -Function SwitchPredictionView -Chord f2
+    # Set-PSReadLineKeyHandler -Function SwitchPredictionView -Chord f2
     Set-PSReadLineOption -PredictionSource History
 
     $dotnetcli = Join-Path -Path $userProfile -ChildPath '.dotnet'
@@ -34,7 +34,15 @@ if (!$IsWindows) {
         }
     }
 
-    $env:DOTNET_ROOT=(split-path (gcm dotnet).Source)
+    $dotnetSource = $null
+    $dotnetCommand = $null
+    $dotnetCommand = gcm 'dotnet' -ErrorAction ignore
+    if($dotnetCommand) {
+        $dotnetSource = (split-path -ErrorAction ignore $dotnetCommand.Source)
+        if ($dotnetSource) {
+            $env:DOTNET_ROOT = $dotnetSource
+        }
+    }
 
     if ($IsMacOS) {
         if ($env:PATH -notmatch '\b/usr/local/bin\b') {
@@ -42,13 +50,15 @@ if (!$IsWindows) {
             function setenv ($variable, $value) { [Environment]::SetEnvironmentVariable($variable, $value)  }
             # `/usr/libexec/path_helper -c` conveniently outputs something like 'setenv PATH "/usr/local/bin:..."',
             # which we can pass to Invoke-Expression, which then calls our transient `setenv()` function.
-            Invoke-Expression $(/usr/libexec/path_helper -c)
+            /usr/libexec/path_helper -c | foreach-object {
+                Invoke-Expression $_
+            }
             $env:PATH = "${pshome}:$env:PATH"
         }
 
         $env:PATH="${env:PATH}:/Users/travisplunk/.dotnet/tools"
         $env:HOMEBREW_EDITOR='code'
-        $env:EDITOR='nano'
+        $env:EDITOR='code'
     }
 
     function script:precheck
@@ -86,7 +96,6 @@ if (!$IsWindows) {
     Find-MyDotNet
 }
 
-
 # #Enable AzPredictor if present
 # if ((Get-Module psreadline).Version -gt 2.1.99 -and (Get-Command 'Enable-AzPredictor' -ErrorAction SilentlyContinue)) {
 #     Enable-AzPredictor
@@ -94,7 +103,11 @@ if (!$IsWindows) {
 
 #Enable new fancy progress bar
 if ([version]::new($psversiontable.psversion.major,$psversiontable.psversion.Minor,$psversiontable.psversion.Patch) -ge [version]'7.2.0') {
-    Enable-ExperimentalFeature PSAnsiProgress,PSAnsiRendering -WarningAction SilentlyContinue
+    $featureToEnable = @(
+        'PSAnsiRenderingFileInfo'
+    )
+
+    Get-ExperimentalFeature | where-object {$_.name -in $featureToEnable} | Enable-ExperimentalFeature -WarningAction SilentlyContinue
     #Windows Terminal
     if ($ENV:WT_SESSION) {
         $PSStyle.Progress.UseOSCIndicator = $true
@@ -128,6 +141,9 @@ if (Get-Command starship -CommandType Application -ErrorAction SilentlyContinue)
     if ((Get-Module PSReadline).Version -ge '2.1.0') {
         Set-PSReadLineOption -PromptText "`e[32m❯ ", '❯ '
     }
+}
+else {
+    Write-Warning "Please install starship"
 }
 
 #region Helper functions
