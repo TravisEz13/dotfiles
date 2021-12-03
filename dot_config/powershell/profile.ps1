@@ -51,9 +51,14 @@ if (!$IsWindows) {
             # `/usr/libexec/path_helper -c` conveniently outputs something like 'setenv PATH "/usr/local/bin:..."',
             # which we can pass to Invoke-Expression, which then calls our transient `setenv()` function.
             /usr/libexec/path_helper -c | foreach-object {
+                Write-Verbose "Updating env: $_ "
                 Invoke-Expression $_
             }
             $env:PATH = "${pshome}:$env:PATH"
+            /opt/homebrew/bin/brew shellenv  | foreach-object {
+                Write-Verbose "Updating env: $_ "
+                Invoke-Expression $_
+            }
         }
 
         $env:PATH="${env:PATH}:/Users/travisplunk/.dotnet/tools"
