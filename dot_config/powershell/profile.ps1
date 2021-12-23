@@ -55,15 +55,17 @@ if (!$IsWindows) {
                 Invoke-Expression $_
             }
             $env:PATH = "${pshome}:$env:PATH"
-            /opt/homebrew/bin/brew shellenv  | foreach-object {
-                Write-Verbose "Updating env: $_ "
-                Invoke-Expression $_
+            if(!(Get-Command brew -ErrorAction SilentlyContinue)){
+                /opt/homebrew/bin/brew shellenv  | foreach-object {
+                    Write-Verbose "Updating env: $_ "
+                    Invoke-Expression $_
+                }
             }
         }
 
         $env:PATH="${env:PATH}:/Users/travisplunk/.dotnet/tools"
-        $env:HOMEBREW_EDITOR='code'
-        $env:EDITOR='code'
+        $env:HOMEBREW_EDITOR='code -w'
+        $env:EDITOR='code -w'
     }
 
     function script:precheck
