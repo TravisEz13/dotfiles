@@ -23,4 +23,5 @@ the install script symlinks this directory and the profiles are picked up automa
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)
 brew install chezmoi
 chezmoi init TravisEz13
+brew bundle install
 ```
