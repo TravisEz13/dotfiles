@@ -66,6 +66,7 @@ if (!$IsWindows) {
         $env:PATH="${env:PATH}:/Users/travisplunk/.dotnet/tools"
         $env:HOMEBREW_EDITOR='code -w'
         $env:EDITOR='code -w'
+        $env:XDG_CONFIG_HOME = '~/.config/'
     }
 
     function script:precheck
@@ -382,7 +383,34 @@ function Enable-DockerExperimentalCli
     @{experimental='enabled'}|ConvertTo-Json | Out-File -Encoding ascii -FilePath $dockerCliConfig
 }
 
+function Install-IfNotInstalled {
+    param(
+        [Parameter(Mandatory)]
+        [string] $PackageName,
 
+        [ValidateSet('brew', 'yarn')]
+        [string] $PackageManager = 'brew',
+
+        [string] $packageVersion
+    )
+
+    if (!(Get-Command $packageName -ErrorAction SilentlyContinue)) {
+        switch ($PackageManager) {
+            'brew' {
+                Write-Verbose "insalling $PackageName ..." -Verbose
+                brew install $PackageName
+            }
+            'yarn' {
+                $yarnPackage = $PackageName
+                if ($packageVersion) {
+                    $yarnPackage += "@$packageVersion"
+                }
+                Write-Verbose "insalling $yarnPackage ..." -Verbose
+                sudo yarn global add $yarnPackage
+            }
+        }
+    }
+}
 
 function Test-Spelling
 {
@@ -396,8 +424,9 @@ function Test-Spelling
 
     if(!(Get-Command mdspell -ErrorAction SilentlyContinue))
     {
-        brew install yarn
-        sudo yarn global add 'markdown-spellcheck@0.11.0'
+        Install-IfNotInstalled -packageName node -PackageManager brew
+        Install-IfNotInstalled -packageName yarn -PackageManager brew
+        Install-IfNotInstalled -packageName markdown-spellcheck -PackageManager yarn -packageVersion 0.11.0
     }
 
     $fileList = @()
