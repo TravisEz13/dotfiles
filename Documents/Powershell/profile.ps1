@@ -10,6 +10,22 @@ if ($psversiontable.psversion.major -ge 7) {
     $ErrorView = 'ConciseView'
 }
 
+$env:HOMEBREW_EDITOR='code -w'
+$env:EDITOR='code -w'
+Set-PSReadLineOption -PredictionSource History
+
+$dotnetSource = $null
+$dotnetCommand = $null
+$dotnetCommand = gcm 'dotnet' -ErrorAction ignore
+if($dotnetCommand) {
+    $dotnetSource = (split-path -ErrorAction ignore $dotnetCommand.Source)
+    if ($dotnetSource) {
+        $env:DOTNET_ROOT = $dotnetSource
+    }
+}
+
+Set-PSReadLineKeyHandler -Function AcceptNextSuggestionWord -Chord Ctrl+DownArrow
+
 if (!$IsWindows) {
     #Other terminal bindings
     # Alt+Shift+ArrowLeft to \033b
@@ -24,49 +40,12 @@ if (!$IsWindows) {
     Set-PSReadlineKeyHandler -Chord Alt+Shift+E -Function SelectLine  #Shift+End in terminal bound to \033E
     Set-PSReadlineKeyHandler -Chord Alt+8 -Function HistorySearchBackward
     Set-PSReadLineKeyHandler -Chord alt+enter -Function addline
-    # Set-PSReadLineKeyHandler -Function SwitchPredictionView -Chord f2
-    Set-PSReadLineOption -PredictionSource History
 
     $dotnetcli = Join-Path -Path $userProfile -ChildPath '.dotnet'
     if (Test-Path $dotnetcli ) {
         if ($env:PATH -notcontains $dotnetcli) {
             $env:PATH = $env:PATH + ':' + $dotnetcli
         }
-    }
-
-    $dotnetSource = $null
-    $dotnetCommand = $null
-    $dotnetCommand = gcm 'dotnet' -ErrorAction ignore
-    if($dotnetCommand) {
-        $dotnetSource = (split-path -ErrorAction ignore $dotnetCommand.Source)
-        if ($dotnetSource) {
-            $env:DOTNET_ROOT = $dotnetSource
-        }
-    }
-
-    if ($IsMacOS) {
-        if ($env:PATH -notmatch '\b/usr/local/bin\b') {
-            # prevent repeated replacement of $env:PATH
-            function setenv ($variable, $value) { [Environment]::SetEnvironmentVariable($variable, $value)  }
-            # `/usr/libexec/path_helper -c` conveniently outputs something like 'setenv PATH "/usr/local/bin:..."',
-            # which we can pass to Invoke-Expression, which then calls our transient `setenv()` function.
-            /usr/libexec/path_helper -c | foreach-object {
-                Write-Verbose "Updating env: $_ "
-                Invoke-Expression $_
-            }
-            $env:PATH = "${pshome}:$env:PATH"
-            if(!(Get-Command brew -ErrorAction SilentlyContinue)){
-                /opt/homebrew/bin/brew shellenv  | foreach-object {
-                    Write-Verbose "Updating env: $_ "
-                    Invoke-Expression $_
-                }
-            }
-        }
-
-        $env:PATH="${env:PATH}:/Users/travisplunk/.dotnet/tools"
-        $env:HOMEBREW_EDITOR='code -w'
-        $env:EDITOR='code -w'
-        $env:XDG_CONFIG_HOME = '~/.config/'
     }
 
     function script:precheck
@@ -388,7 +367,7 @@ function Install-IfNotInstalled {
         [Parameter(Mandatory)]
         [string] $PackageName,
 
-        [ValidateSet('brew', 'yarn')]
+        [ValidateSet('brew', 'yarn', 'winget')]
         [string] $PackageManager = 'brew',
 
         [string] $packageVersion
@@ -396,6 +375,10 @@ function Install-IfNotInstalled {
 
     if (!(Get-Command $packageName -ErrorAction SilentlyContinue)) {
         switch ($PackageManager) {
+            'winget' {
+                Write-Verbose "insalling $PackageName ..." -Verbose
+                winget install $PackageName
+            }
             'brew' {
                 Write-Verbose "insalling $PackageName ..." -Verbose
                 brew install $PackageName
@@ -406,7 +389,7 @@ function Install-IfNotInstalled {
                     $yarnPackage += "@$packageVersion"
                 }
                 Write-Verbose "insalling $yarnPackage ..." -Verbose
-                sudo yarn global add $yarnPackage
+                yarn global add $yarnPackage
             }
         }
     }
@@ -424,8 +407,8 @@ function Test-Spelling
 
     if(!(Get-Command mdspell -ErrorAction SilentlyContinue))
     {
-        Install-IfNotInstalled -packageName node -PackageManager brew
-        Install-IfNotInstalled -packageName yarn -PackageManager brew
+        Install-IfNotInstalled -packageName node -PackageManager winget
+        Install-IfNotInstalled -packageName yarn -PackageManager winget
         Install-IfNotInstalled -packageName markdown-spellcheck -PackageManager yarn -packageVersion 0.11.0
     }
 
