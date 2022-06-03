@@ -498,6 +498,6 @@ function ConvertFrom-Base64
         [string]$InputObject
     )
 
-    return System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($InputObject))
+    return [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($InputObject))
 
 }
