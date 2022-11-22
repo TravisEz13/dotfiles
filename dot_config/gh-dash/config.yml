@@ -1,0 +1,20 @@
+prSections:
+  - title: My Pull Requests
+    filters: is:open author:@me -repo:travisez13/powershell-docker -repo:travisez13/powershell
+  - title: Needs My Review
+    filters: assignee:@me -repo:travisez13/powershell-docker -repo:travisez13/powershell is:open
+  - title: Docker - Open
+    filters: repo:PowerShell/powershell-docker is:open
+  - title: Homebrew - Open
+    filters: repo:PowerShell/Homebrew-tap is:open
+issuesSections:
+  - title: Created
+    filters: is:open author:@me
+  - title: Assigned
+    filters: is:open assignee:@me
+defaults:
+  prsLimit: 20 # global limit
+  issuesLimit: 20 # global limit
+  preview:
+    open: true
+    width: 60
