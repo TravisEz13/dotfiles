@@ -66,7 +66,7 @@ if (!$IsWindows) {
         $env:PATH="${env:PATH}:/Users/travisplunk/.dotnet/tools"
         $env:HOMEBREW_EDITOR='code -w'
         $env:EDITOR='code -w'
-        $env:XDG_CONFIG_HOME = '~/.config/'
+        $env:XDG_CONFIG_HOME = ((Resolve-Path '~/.config/').ProviderPath)
     }
 
     function script:precheck
@@ -515,6 +515,36 @@ function ConvertFrom-Base64
         [string]$InputObject
     )
 
-    return System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($InputObject))
+    return [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($InputObject))
+}
 
+function cdgit {
+    [CmdletBinding(DefaultParameterSetName='Path', HelpUri='https://go.microsoft.com/fwlink/?LinkID=2097049')]
+    param(
+        [Parameter(ParameterSetName='Path', Position=0, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [string]
+        ${Path},
+
+        [switch]
+        ${PassThru}
+    )
+
+
+    begin
+    {
+        try {
+            $Path = Join-Path -Path '~/git' -ChildPath $Path
+        } catch {
+            throw
+        }
+    }
+
+    process
+    {
+        try {
+            Set-Location -Path $Path -PassThru:$PassThru
+        } catch {
+            throw
+        }
+    }
 }
