@@ -122,6 +122,13 @@ if ([version]::new($psversiontable.psversion.major,$psversiontable.psversion.Min
     }
 }
 
+if (Get-Module -listavailable PoshCodex -ErrorAction SilentlyContinue) {
+    Import-Module PoshCodex
+    $env:OPENAI_API_KEY=(get-secret -AsPlainText -Name openai)
+} else {
+    Write-Verbose "PoshCodex not installed" -Verbose
+}
+
 
 #Starship Prompt
 if (Get-Command starship -CommandType Application -ErrorAction SilentlyContinue) {
@@ -521,14 +528,39 @@ function ConvertFrom-Base64
 function cdgit {
     [CmdletBinding(DefaultParameterSetName='Path', HelpUri='https://go.microsoft.com/fwlink/?LinkID=2097049')]
     param(
-        [Parameter(ParameterSetName='Path', Position=0, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [string]
-        ${Path},
-
         [switch]
         ${PassThru}
     )
 
+    DynamicParam {
+
+        $repos = Get-ChildItem -Path '~/git' -Directory | Select-Object -ExpandProperty Name
+
+        # Create the parameter attributs
+        $Attributes = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+
+        $ParameterAttr = [System.Management.Automation.ParameterAttribute]::new()
+        $ParameterAttr.ParameterSetName = 'Path'
+        $ParameterAttr.ValueFromPipeline = $true
+        $ParameterAttr.ValueFromPipelineByPropertyName = $true
+        $ParameterAttr.Position = 0
+        $ParameterAttr.Mandatory = $Mandatory
+        $Attributes.Add($ParameterAttr) > $null
+
+        if($repos.Count -gt 0)
+        {
+            $ValidateSetAttr = [System.Management.Automation.ValidateSetAttribute]::new(([string[]]$repos))
+            $Attributes.Add($ValidateSetAttr) > $null
+        }
+
+        # Create the parameter
+        $Parameter = [System.Management.Automation.RuntimeDefinedParameter]::new("Path", [string[]], $Attributes)
+
+        # Return parameters dictionaly
+        $parameters = [System.Management.Automation.RuntimeDefinedParameterDictionary]::new()
+        $parameters.Add("Path", $Parameter) > $null
+        return $parameters
+    }
 
     begin
     {
