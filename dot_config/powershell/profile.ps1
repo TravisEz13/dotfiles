@@ -594,7 +594,7 @@ if(get-command github-copilot-cli -ErrorAction SilentlyContinue) {
 
         $shellOutFile = [system.io.path]::GetTempFileName() + '.ps1'
         try {
-            github-copilot-cli $Command $Query --shellout $shellOutFile
+            github-copilot-cli $Command "$Query" --shellout $shellOutFile
             if(Test-Path $shellOutFile) {
                 $script = Get-Content -Path $shellOutFile -Raw
                 $sb = [scriptblock]::create($script)
