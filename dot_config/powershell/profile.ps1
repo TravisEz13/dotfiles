@@ -122,12 +122,12 @@ if ([version]::new($psversiontable.psversion.major,$psversiontable.psversion.Min
     }
 }
 
-if (Get-Module -listavailable PoshCodex -ErrorAction SilentlyContinue) {
-    Import-Module PoshCodex
-    $env:OPENAI_API_KEY=(get-secret -AsPlainText -Name openai)
-} else {
-    Write-Verbose "PoshCodex not installed" -Verbose
-}
+# if (Get-Module -listavailable PoshCodex -ErrorAction SilentlyContinue) {
+#     Import-Module PoshCodex
+#     $env:OPENAI_API_KEY=(get-secret -AsPlainText -Name openai)
+# } else {
+#     #Write-Verbose "PoshCodex not installed" -Verbose
+# }
 
 
 #Starship Prompt
@@ -533,7 +533,6 @@ function cdgit {
     )
 
     DynamicParam {
-
         $repos = Get-ChildItem -Path '~/git' -Directory | Select-Object -ExpandProperty Name
 
         # Create the parameter attributs
@@ -554,7 +553,7 @@ function cdgit {
         }
 
         # Create the parameter
-        $Parameter = [System.Management.Automation.RuntimeDefinedParameter]::new("Path", [string[]], $Attributes)
+        $Parameter = [System.Management.Automation.RuntimeDefinedParameter]::new("Path", [string], $Attributes)
 
         # Return parameters dictionaly
         $parameters = [System.Management.Automation.RuntimeDefinedParameterDictionary]::new()
@@ -565,6 +564,7 @@ function cdgit {
     begin
     {
         try {
+            $Path = $PSBoundParameters["Path"]
             $Path = Join-Path -Path '~/git' -ChildPath $Path
         } catch {
             throw
@@ -578,5 +578,65 @@ function cdgit {
         } catch {
             throw
         }
+    }
+}
+
+if(get-command github-copilot-cli -ErrorAction SilentlyContinue) {
+    function Invoke-CopilotCli {
+        [CmdletBinding(SupportsShouldProcess = $true)]
+        param(
+            [parameter(mandatory=$true, position=0)]
+            [string]
+            $Command,
+            [parameter(mandatory=$true, position=1, ValueFromRemainingArguments=$true)]
+            $Query
+        )
+
+        $shellOutFile = [system.io.path]::GetTempFileName() + '.ps1'
+        try {
+            github-copilot-cli $Command $Query --shellout $shellOutFile
+            if(Test-Path $shellOutFile) {
+                $script = Get-Content -Path $shellOutFile -Raw
+                $sb = [scriptblock]::create($script)
+                if ($PSCmdlet.ShouldProcess($sb.ToString(), 'Invoke Script') ) {
+                    & $sb
+                }
+            }
+        }
+        finally {
+            remove-item -Path $shellOutFile -ErrorAction SilentlyContinue -Force
+        }
+
+
+    }
+
+    function Invoke-CopilotGitAssist {
+        [Alias("git?")]
+        [CmdletBinding(SupportsShouldProcess = $true)]
+        param(
+            [parameter(mandatory=$true, position=0, ValueFromRemainingArguments=$true)]
+            $Query
+        )
+        Invoke-CopilotCli -Command git-assist -Query $Query
+    }
+
+    function Invoke-CopilotGHAssist {
+        [Alias("gh?")]
+        [CmdletBinding(SupportsShouldProcess = $true)]
+        param(
+            [parameter(mandatory=$true, position=0, ValueFromRemainingArguments=$true)]
+            $Query
+        )
+        Invoke-CopilotCli -Command gh-assist -Query $Query
+    }
+
+    function Invoke-CopilotWhatTheShell {
+        [Alias("wts","wts?")]
+        [CmdletBinding(SupportsShouldProcess = $true)]
+        param(
+            [parameter(mandatory=$true, position=0, ValueFromRemainingArguments=$true)]
+            $Query
+        )
+        Invoke-CopilotCli -Command what-the-shell -Query $Query
     }
 }
