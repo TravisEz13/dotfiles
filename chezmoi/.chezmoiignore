@@ -1,0 +1,8 @@
+README.md
+{{ if eq .chezmoi.os "windows" }}
+.config/powershell/profile.ps1
+{{ end }}
+{{ if ne .chezmoi.os "windows" }}
+Documents/**/profile.ps1
+Documents/Powershell
+{{ end }}
