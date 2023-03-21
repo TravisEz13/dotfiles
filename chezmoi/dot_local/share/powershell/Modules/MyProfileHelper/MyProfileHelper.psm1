@@ -279,3 +279,45 @@ function Invoke-CopilotWhatTheShell {
     )
     Invoke-CopilotCli -Command what-the-shell -Query $Query
 }
+
+function Invoke-ChezmoiEdit {
+    [alias('chezmoi-edit')]
+    param()
+
+    code -w $(chezmoi source-path)
+    chezmoi apply
+}
+
+$gitHeads = @{}
+
+function New-BranchFromMain {
+    param(
+        [Parameter(Mandatory)]
+        [string]
+        $BranchName,
+        [switch]
+        $Overwrite
+    )
+
+    $activityName = "New Branch from Main"
+    $remote = git remote | Select-String -Pattern 'upstream|origin' -NoEmphasis | Where-Object { $_ } | Sort-Object | Select-Object -First 1
+    Write-Progress -Activity $activityName -Status "Fetching $remote" -PercentComplete 1
+    git fetch $remote
+    if (!$gitHeads.ContainsKey($PWD)) {
+        Write-Progress -Activity $activityName -Status "Finding main" -PercentComplete 10
+        $mainHead = git ls-remote --heads $remote | % { ($_ -split '\s+')[1] } | where-object { $_ -match '/(master|main)$' }
+        $gitHeads[$PWD] = $mainHead
+    }
+
+    $mainHead = $gitHeads[$PWD]
+    $ref = $mainHead -replace 'refs/heads', $remote
+    Write-Progress -Activity $activityName -Status "Creating $BranchName from $ref" -PercentComplete 90
+    $switch = '-c'
+    if ($Overwrite) {
+        $switch = '-C'
+    }
+    git switch $ref $switch $BranchName
+    git branch --unset-upstream
+    git log --oneline -n 5
+    Write-Progress -Activity $activityName -Status "Done" -Completed
+}
