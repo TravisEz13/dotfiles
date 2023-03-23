@@ -305,7 +305,9 @@ function New-BranchFromMain {
     git fetch $remote
     if (!$gitHeads.ContainsKey($PWD)) {
         Write-Progress -Activity $activityName -Status "Finding main" -PercentComplete 10
-        $mainHead = git ls-remote --heads $remote | % { ($_ -split '\s+')[1] } | where-object { $_ -match '/(master|main)$' }
+        $mainHead = git ls-remote --heads $remote |
+            ForEach-Object { ($_ -split '\s+')[1] } |
+            where-object { $_ -match '^refs/heads/(master|main)$' }
         $gitHeads[$PWD] = $mainHead
     }
 
@@ -320,4 +322,22 @@ function New-BranchFromMain {
     git branch --unset-upstream
     git log --oneline -n 5
     Write-Progress -Activity $activityName -Status "Done" -Completed
+}
+
+function Invoke-Mariner {
+    param(
+        [hashtable]
+        $Environment
+    )
+    $tag = 'mymariner'
+    docker build "$PSScriptRoot/mariner" -t $tag
+    $environmentParams =@()
+    foreach($key in $Environment.Keys) {
+        $value = $Environment.$key
+        $environmentParams += @(
+            '--env'
+            "$key=$value"
+        )
+    }
+    docker run -it $environmentParams --rm $tag
 }
