@@ -300,7 +300,7 @@ function New-BranchFromMain {
     )
 
     $activityName = "New Branch from Main"
-    $remote = git remote | Select-String -Pattern 'upstream|origin' -NoEmphasis | Where-Object { $_ } | Sort-Object | Select-Object -First 1
+    $remote = git remote | Select-String -Pattern 'upstream|origin' -NoEmphasis | Where-Object { $_ } | Sort-Object -Descending | Select-Object -First 1
     Write-Progress -Activity $activityName -Status "Fetching $remote" -PercentComplete 1
     git fetch $remote
     if (!$gitHeads.ContainsKey($PWD)) {
