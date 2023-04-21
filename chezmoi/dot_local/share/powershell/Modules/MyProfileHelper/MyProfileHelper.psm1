@@ -341,3 +341,16 @@ function Invoke-Mariner {
     }
     docker run -it $environmentParams --rm $tag
 }
+
+function Get-GitDatabases {
+    param($root = "~/")
+    Get-ChildItem -Path $root -Filter .git -Recurse -Directory -Attributes Hidden -ErrorAction SilentlyContinue | ForEach-Object {
+        $resultString = (tmutil isexcluded ($_.FullName))
+        Write-Verbose "'$resultString"
+        $excluded = $resultString -like '*[Excluded]*'
+        $kb = du -s -k  ($_.FullName) | ForEach-Object{ ($_ -split '/s*')[0]}
+        $_ |
+            Add-Member -NotePropertyName TimeMachineExcluded -NotePropertyValue $excluded -PassThru |
+            Add-Member -NotePropertyName TotalSize -NotePropertyValue ($kb * 1KB) -PassThru
+    }
+}
