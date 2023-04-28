@@ -35,7 +35,7 @@ function Get-CommandFast {
 
         return $result
     } else {
-        return Get-Command -Name $Name
+        return Get-Command -Name $Name -ErrorAction SilentlyContinue
     }
 }
 
@@ -45,6 +45,12 @@ if ($psversiontable.psversion.major -ge 7) {
 }
 
 if (!$IsWindows) {
+    if (test-path /opt/homebrew/bin/brew) {
+        $sb = $(/opt/homebrew/bin/brew shellenv)
+        ForEach ($line in $sb) {
+            Invoke-Expression -Command $line
+        }
+    }
     #Other terminal bindings
     # Alt+Shift+ArrowLeft to \033b
     # Alt+Shift+ArrowLeft to \033B
