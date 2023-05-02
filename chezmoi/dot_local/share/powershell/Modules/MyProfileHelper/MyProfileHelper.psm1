@@ -354,3 +354,35 @@ function Get-GitDatabases {
             Add-Member -NotePropertyName TotalSize -NotePropertyValue ($kb * 1KB) -PassThru
     }
 }
+
+function Get-PRList {
+    param(
+        [switch] $Assigned,
+
+        [ValidateSet('approved')]
+        [string] $Review,
+
+        [ValidateSet('false','true','all')]
+        [string] $Draft,
+
+        [Parameter(ParameterSetName='NotDraft')]
+        [switch] $NoDraft
+    )
+    $search = ""
+    if ($Assigned) {
+        $search += " assignee:TravisEz13"
+    }
+    if ($Review) {
+        $search += " review:$Review"
+    }
+    switch($Draft) {
+        'true' {
+            $search += " draft:true"
+        }
+        'false' {
+            $search += ' draft:false'
+        }
+    }
+    Write-Verbose "search: '$search'" -Verbose
+    gh pr list --search $search
+}
