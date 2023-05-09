@@ -366,7 +366,9 @@ function Get-PRList {
         [string] $Draft,
 
         [Parameter(ParameterSetName='NotDraft')]
-        [switch] $NoDraft
+        [switch] $NoDraft,
+
+        [string[]] $ExcludeLabel
     )
     $search = ""
     if ($Assigned) {
@@ -375,13 +377,15 @@ function Get-PRList {
     if ($Review) {
         $search += " review:$Review"
     }
-    switch($Draft) {
-        'true' {
-            $search += " draft:true"
-        }
-        'false' {
-            $search += ' draft:false'
-        }
+    if($Draft ) {
+        $search += " draft:true"
+
+    }
+    if($NoDraft) {
+        $search += ' draft:false'
+    }
+    foreach($label in $ExcludeLabel) {
+        $search += " -label:`"$label`""
     }
     Write-Verbose "search: '$search'" -Verbose
     gh pr list --search $search
