@@ -405,48 +405,78 @@ class PingPathResult {
     $Count
 }
 
+enum InternetProtocol {
+    IPv4
+    IPv6
+}
+
 function Invoke-PingPath {
     param(
         [string]
         $TargetName,
-        [ValidateScript({$_ -gt 0})]
+        [ValidateScript({ $_ -gt 0 })]
         [uint]
-        $Count = 25
+        $Count = 25,
+        [InternetProtocol]
+        $Protocol = [InternetProtocol]::IPv6
     )
+    $activityName = "Ping path"
+
     Update-FormatData -AppendPath $PSScriptRoot\PingPathResult.format.ps1xml
 
-    Write-Verbose -Verbose "Finding Path to $TargetName ..."
-    if ($IsMacOs) {
-        $trStrings = traceroute6 -I -q 1 -w 1 -n $TargetName 2>&1 | 
-            Where-Object { $_ -match '^\s?\d+\s+' }
+    switch ($Protocol) {
+        "IPv6" {
+            $traceCommand = 'traceroute6'
+        }
+        "IPv4" {
+            $traceCommand = 'traceroute4'
+        }
+        default {
+            throw "unknown protocol $Protocol"
+        }
     }
 
-    Write-Verbose -Verbose "Finding loss rate along path using $Count pings..."
+    Write-Progress -Activity $activityName -Status "Finding Path to $TargetName ..." -PercentComplete 0
+    if ($IsMacOs) {
+        $trStrings = &$traceCommand -I -q 1 -w 1 -n $TargetName 2>&1 | 
+        Where-Object { $_ -match '^\s?\d+\s+' }
+    }
+
+    $doneCount = 0
+    $hostCount = $trStrings.count
     $trStrings | ForEach-Object {
         $null = $_ -match '^\s?\d+\s+([^\s]*)'
         $target = $matches[1]
         $ping = @()
         if ($target -ne '*') {
-            $escapedTarget = "[$target]"
+            Write-Progress -Activity $activityName -Status "Finding loss rate to $target ..." -PercentComplete (100*$doneCount/$hostCount)
+            if ($Protocol -eq [InternetProtocol]::IPv4) {
+                $escapedTarget = $target
+            }
+            else {
+                $escapedTarget = "[$target]"
+            }
             Write-Verbose -Message "Testing: $target ..."
             $ping = Test-Connection -TargetName $escapedTarget -Count $Count
             $results = $ping | group-object -Property status  
-            $successPings = ($results | Where-Object { $_.name -eq 'success'}).Count
-            $successRate = [float]$successPings/$Count
-            $lossRate = 1-$successRate
+            $successPings = ($results | Where-Object { $_.name -eq 'success' }).Count
+            $successRate = [float]$successPings / $Count
+            $lossRate = 1 - $successRate
             $resolvedTarget = dig -x $target +noall +answer +nocomments | 
-                Where-Object { $_ -match '^[^;]'} | 
-                ForEach-Object{ ($_ -split '[ \t]')[4]}
+            Where-Object { $_ -match '^[^;]' } | 
+            ForEach-Object { ($_ -split '[ \t]')[4] }
             [PingPathResult]@{
-                Target = $target
-                LossRate = $lossRate * 100
+                Target         = $target
+                LossRate       = $lossRate * 100
                 ResolvedTarget = $resolvedTarget
-                Count = $Count
+                Count          = $Count
             } | Write-Output
-        } else {
+        }
+        else {
             [PingPathResult]@{
                 Target = $target
             } | Write-Output
         }
+        $doneCount++
     }
 }
