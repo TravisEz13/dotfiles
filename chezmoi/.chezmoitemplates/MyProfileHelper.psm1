@@ -8,23 +8,20 @@ function Clear-PSRepository {
     }
 }
 
-function Set-ConstrainedLanguageMode
-{
-    $ExecutionContext.SessionState.LanguageMode='ConstrainedLanguage'
-    if($Global:TabTitle)
-    {
+function Set-ConstrainedLanguageMode {
+    $ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'
+    if ($Global:TabTitle) {
         Set-TabTitle -Title "Constrained - $Global:TabTitle"
     }
 }
 
-function Enable-DockerExperimentalCli
-{
+function Enable-DockerExperimentalCli {
     $dockerConfigFolder = "$env:userprofile/.docker"
-    if(!(Test-Path $dockerConfigFolder)){ new-item -Type Directory -Path $dockerConfigFolder}
+    if (!(Test-Path $dockerConfigFolder)) { new-item -Type Directory -Path $dockerConfigFolder }
     $dockerCliConfig = "$env:userprofile/.docker/config.json"
     $dockerCliBackup = "$env:userprofile/.docker/config-backup.json"
-    if(Test-Path $dockerCliConfig) { copy-item $dockerCliConfig $dockerCliBackup -force}
-    @{experimental='enabled'}|ConvertTo-Json | Out-File -Encoding ascii -FilePath $dockerCliConfig
+    if (Test-Path $dockerCliConfig) { copy-item $dockerCliConfig $dockerCliBackup -force }
+    @{experimental = 'enabled' } | ConvertTo-Json | Out-File -Encoding ascii -FilePath $dockerCliConfig
 }
 
 # Used at runtime
@@ -57,8 +54,7 @@ function Install-IfNotInstalled {
     }
 }
 
-function Test-Spelling
-{
+function Test-Spelling {
     param(
         [string[]]
         $Paths,
@@ -67,8 +63,7 @@ function Test-Spelling
 
     )
 
-    if(!(Get-Command mdspell -ErrorAction SilentlyContinue))
-    {
+    if (!(Get-Command mdspell -ErrorAction SilentlyContinue)) {
         Install-IfNotInstalled -packageName node -PackageManager brew
         Install-IfNotInstalled -packageName yarn -PackageManager brew
         Install-IfNotInstalled -packageName markdown-spellcheck -PackageManager yarn -packageVersion 0.11.0
@@ -76,10 +71,8 @@ function Test-Spelling
 
     $fileList = @()
 
-    foreach($path in $Paths)
-    {
-        if($path -match '^\.[/\\]')
-        {
+    foreach ($path in $Paths) {
+        if ($path -match '^\.[/\\]') {
             $fileList += ($path -replace '^\.[/\\]')
         }
         else {
@@ -89,8 +82,7 @@ function Test-Spelling
 
     $extraParams = @()
 
-    if(!$Fix.IsPresent)
-    {
+    if (!$Fix.IsPresent) {
         $extraParams += '--report'
     }
 
@@ -98,66 +90,61 @@ function Test-Spelling
     mdspell $fileList --ignore-numbers --ignore-acronyms @extraParams --en-us --no-suggestions
 }
 
-function Clear-AzResourceGroup
-{
+function Clear-AzResourceGroup {
     [alias('Cleanup-AzResourceGroup')]
     [CmdletBinding()]
     param()
-    $null = Get-AzResourceGroup | ForEach-Object{
-        $yes=[System.Management.Automation.Host.ChoiceDescription]::new('&Yes')
-        $no=[System.Management.Automation.Host.ChoiceDescription]::new('&No')
+    $null = Get-AzResourceGroup | ForEach-Object {
+        $yes = [System.Management.Automation.Host.ChoiceDescription]::new('&Yes')
+        $no = [System.Management.Automation.Host.ChoiceDescription]::new('&No')
         $result = Read-Choice -message "Delete $($_.ResourceGroupName)" -choices $yes, $no -caption question -defaultChoiceIndex 1
-        if($result -eq '&Yes'){
+        if ($result -eq '&Yes') {
             $_
         }
     } | Remove-AzResourceGroup -Force -AsJob
 }
 
-function Get-ProcessPreventingSleep
-{
+function Get-ProcessPreventingSleep {
     param(
         [switch]
         $PassThru
     )
     $results = pmset -g assertions |
-        Where-Object{$_ -match 'pid.*Prevent\w*Sleep'} |
-            ForEach-Object{
-                $null = $_ -match 'pid (\d*){1}.*(Prevent\w*Sleep)'
-                $processId = $Matches.1
-                $issue = $Matches.2
-                $process = Get-Process -Id $processId
-                $process | Add-Member -Name Issue -MemberType NoteProperty -Value $issue
-                Write-Output $process
+    Where-Object { $_ -match 'pid.*Prevent\w*Sleep' } |
+    ForEach-Object {
+        $null = $_ -match 'pid (\d*){1}.*(Prevent\w*Sleep)'
+        $processId = $Matches.1
+        $issue = $Matches.2
+        $process = Get-Process -Id $processId
+        $process | Add-Member -Name Issue -MemberType NoteProperty -Value $issue
+        Write-Output $process
     }
-    if($PassThru) {
-        $results | ForEach-Object { Write-Output $_}
+    if ($PassThru) {
+        $results | ForEach-Object { Write-Output $_ }
         return
     }
 
     $results | Select-Object Id, ProcessName, Issue
 }
 
-function Get-PSGitCommit
-{
+function Get-PSGitCommit {
     $sma = Get-Item (Join-Path $PSHome "System.Management.Automation.dll")
     $formattedVersion = $sma.VersionInfo.ProductVersion
     $formattedVersion
 }
 
-function ConvertTo-Base64
-{
+function ConvertTo-Base64 {
     param(
-        [parameter(Mandatory,ValueFromPipeline = $true)]
+        [parameter(Mandatory, ValueFromPipeline = $true)]
         [string]$InputObject
     )
 
     return [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($InputObject))
 }
 
-function ConvertFrom-Base64
-{
+function ConvertFrom-Base64 {
     param(
-        [parameter(Mandatory,ValueFromPipeline = $true)]
+        [parameter(Mandatory, ValueFromPipeline = $true)]
         [string]$InputObject
     )
 
@@ -167,7 +154,7 @@ function ConvertFrom-Base64
 
 function Set-GitLocation {
     [alias('cdgit')]
-    [CmdletBinding(DefaultParameterSetName='Path', HelpUri='https://go.microsoft.com/fwlink/?LinkID=2097049')]
+    [CmdletBinding(DefaultParameterSetName = 'Path', HelpUri = 'https://go.microsoft.com/fwlink/?LinkID=2097049')]
     param(
         [switch]
         ${PassThru}
@@ -187,8 +174,7 @@ function Set-GitLocation {
         $ParameterAttr.Mandatory = $Mandatory
         $Attributes.Add($ParameterAttr) > $null
 
-        if($repos.Count -gt 0)
-        {
+        if ($repos.Count -gt 0) {
             $ValidateSetAttr = [System.Management.Automation.ValidateSetAttribute]::new(([string[]]$repos))
             $Attributes.Add($ValidateSetAttr) > $null
         }
@@ -202,21 +188,21 @@ function Set-GitLocation {
         return $parameters
     }
 
-    begin
-    {
+    begin {
         try {
             $Path = $PSBoundParameters["Path"]
             $Path = Join-Path -Path '~/git' -ChildPath $Path
-        } catch {
+        }
+        catch {
             throw
         }
     }
 
-    process
-    {
+    process {
         try {
             Set-Location -Path $Path -PassThru:$PassThru
-        } catch {
+        }
+        catch {
             throw
         }
     }
@@ -225,17 +211,17 @@ function Set-GitLocation {
 function Invoke-CopilotCli {
     [CmdletBinding(SupportsShouldProcess = $true)]
     param(
-        [parameter(mandatory=$true, position=0)]
+        [parameter(mandatory = $true, position = 0)]
         [string]
         $Command,
-        [parameter(mandatory=$true, position=1, ValueFromRemainingArguments=$true)]
+        [parameter(mandatory = $true, position = 1, ValueFromRemainingArguments = $true)]
         $Query
     )
 
     $shellOutFile = [system.io.path]::GetTempFileName() + '.ps1'
     try {
         github-copilot-cli $Command "$Query" --shellout $shellOutFile
-        if(Test-Path $shellOutFile) {
+        if (Test-Path $shellOutFile) {
             $script = Get-Content -Path $shellOutFile -Raw
             $sb = [scriptblock]::create($script)
             if ($PSCmdlet.ShouldProcess($sb.ToString(), 'Invoke Script') ) {
@@ -254,7 +240,7 @@ function Invoke-CopilotGitAssist {
     [Alias("git?")]
     [CmdletBinding(SupportsShouldProcess = $true)]
     param(
-        [parameter(mandatory=$true, position=0, ValueFromRemainingArguments=$true)]
+        [parameter(mandatory = $true, position = 0, ValueFromRemainingArguments = $true)]
         $Query
     )
     Invoke-CopilotCli -Command git-assist -Query $Query
@@ -264,17 +250,17 @@ function Invoke-CopilotGHAssist {
     [Alias("gh?")]
     [CmdletBinding(SupportsShouldProcess = $true)]
     param(
-        [parameter(mandatory=$true, position=0, ValueFromRemainingArguments=$true)]
+        [parameter(mandatory = $true, position = 0, ValueFromRemainingArguments = $true)]
         $Query
     )
     Invoke-CopilotCli -Command gh-assist -Query $Query
 }
 
 function Invoke-CopilotWhatTheShell {
-    [Alias("wts","wts?")]
+    [Alias("wts", "wts?")]
     [CmdletBinding(SupportsShouldProcess = $true)]
     param(
-        [parameter(mandatory=$true, position=0, ValueFromRemainingArguments=$true)]
+        [parameter(mandatory = $true, position = 0, ValueFromRemainingArguments = $true)]
         $Query
     )
     Invoke-CopilotCli -Command what-the-shell -Query $Query
@@ -306,8 +292,8 @@ function New-BranchFromMain {
     if (!$gitHeads.ContainsKey($PWD)) {
         Write-Progress -Activity $activityName -Status "Finding main" -PercentComplete 10
         $mainHead = git ls-remote --heads $remote |
-            ForEach-Object { ($_ -split '\s+')[1] } |
-            where-object { $_ -match '^refs/heads/(master|main)$' }
+        ForEach-Object { ($_ -split '\s+')[1] } |
+        where-object { $_ -match '^refs/heads/(master|main)$' }
         $gitHeads[$PWD] = $mainHead
     }
 
@@ -331,8 +317,8 @@ function Invoke-Mariner {
     )
     $tag = 'mymariner'
     docker build "$PSScriptRoot/mariner" -t $tag
-    $environmentParams =@()
-    foreach($key in $Environment.Keys) {
+    $environmentParams = @()
+    foreach ($key in $Environment.Keys) {
         $value = $Environment.$key
         $environmentParams += @(
             '--env'
@@ -348,10 +334,10 @@ function Get-GitDatabases {
         $resultString = (tmutil isexcluded ($_.FullName))
         Write-Verbose "'$resultString"
         $excluded = $resultString -like '*[Excluded]*'
-        $kb = du -s -k  ($_.FullName) | ForEach-Object{ ($_ -split '/s*')[0]}
+        $kb = du -s -k  ($_.FullName) | ForEach-Object { ($_ -split '/s*')[0] }
         $_ |
-            Add-Member -NotePropertyName TimeMachineExcluded -NotePropertyValue $excluded -PassThru |
-            Add-Member -NotePropertyName TotalSize -NotePropertyValue ($kb * 1KB) -PassThru
+        Add-Member -NotePropertyName TimeMachineExcluded -NotePropertyValue $excluded -PassThru |
+        Add-Member -NotePropertyName TotalSize -NotePropertyValue ($kb * 1KB) -PassThru
     }
 }
 
@@ -362,10 +348,10 @@ function Get-PRList {
         [ValidateSet('approved')]
         [string] $Review,
 
-        [ValidateSet('false','true','all')]
+        [ValidateSet('false', 'true', 'all')]
         [string] $Draft,
 
-        [Parameter(ParameterSetName='NotDraft')]
+        [Parameter(ParameterSetName = 'NotDraft')]
         [switch] $NoDraft,
 
         [string[]] $ExcludeLabel
@@ -377,14 +363,14 @@ function Get-PRList {
     if ($Review) {
         $search += " review:$Review"
     }
-    if($Draft ) {
+    if ($Draft ) {
         $search += " draft:true"
 
     }
-    if($NoDraft) {
+    if ($NoDraft) {
         $search += ' draft:false'
     }
-    foreach($label in $ExcludeLabel) {
+    foreach ($label in $ExcludeLabel) {
         $search += " -label:`"$label`""
     }
     Write-Verbose "search: '$search'" -Verbose
@@ -449,7 +435,7 @@ function Invoke-PingPath {
         $target = $matches[1]
         $ping = @()
         if ($target -ne '*') {
-            Write-Progress -Activity $activityName -Status "Finding loss rate to $target ..." -PercentComplete (100*$doneCount/$hostCount)
+            Write-Progress -Activity $activityName -Status "Finding loss rate to $target ..." -PercentComplete (100 * $doneCount / $hostCount)
             if ($Protocol -eq [InternetProtocol]::IPv4) {
                 $escapedTarget = $target
             }
@@ -481,43 +467,69 @@ function Invoke-PingPath {
     }
 }
 
+function Get-CITestPolicyCert {
+    dir Cert:\CurrentUser\My\ | ?{$_.subject -like '*-cipolicytest'}
+}
+
 function New-CITestPolicy {
-    if(!(Test-IsElevated) ) {
+    param(
+        [switch]
+        $SkipElevationCheck
+    )
+    if (!(Test-IsElevated) -and !$SkipElevationCheck ) {
         throw "Must be run elevated"
     }
     
+    $basePolicyXml = "$psscriptroot\basePolicy.xml"
     $policyXml = '.\SystemCIPolicy.xml'
-    #New-CIPolicy -Level PcaCertificate -FilePath $policyXml -UserPEs -Audit:$false
-    Set-RuleOption -FilePath $policyXml -Option 3 -Delete
 
-    $cert = New-SelfSignedCertificate -DnsName $env:COMPUTERNAME -CertStoreLocation "Cert:\CurrentUser\My\" -Type CodeSigningCert
-    if(!(Test-Path C:\certs)) {
-        $null = new-item -itemType Directory -Path C:\certs
+    #$rules = @(New-CIPolicyRule -FilePathRule "C:\Program Files\*" -UserWriteablePaths)
+
+    #Merge-CIPolicy -PolicyPaths $basePolicyXml -OutputFilePath $policyXml -Rules $rules -ErrorAction stop
+    Copy-Item -Path $basePolicyXml -Destination $policyXml
+
+    #New-CIPolicy -Level PcaCertificate -FilePath $policyXml -UserPEs -Audit:$false
+    Set-RuleOption -FilePath $policyXml -Option 3 -Delete -ErrorAction stop
+    Set-RuleOption -FilePath $policyXml -Option 16 -ErrorAction stop
+
+    $cert = Get-CITestPolicyCert
+    if(!$cert) {
+        $cert = New-SelfSignedCertificate -DnsName "$env:COMPUTERNAME-cipolicytest" -CertStoreLocation "Cert:\CurrentUser\My\" -Type CodeSigningCert  -ErrorAction stop
+        if (!(Test-Path C:\certs)) {
+            $null = new-item -itemType Directory -Path C:\certs
+        }
+        Export-Certificate -Cert $cert -FilePath c:\certs\signing.cer
+        $null = Import-Certificate -FilePath C:\certs\signing.cer -CertStoreLocation "Cert:\CurrentUser\Root\"
+        $cert = Get-CITestPolicyCert
     }
-    Export-Certificate -Cert $cert -FilePath c:\certs\signing.cer
-    Import-Certificate -FilePath C:\certs\signing.cer -CertStoreLocation "Cert:\CurrentUser\Root\"
-    $cert = Get-ChildItem Cert:\CurrentUser\My\ -CodeSigningCert | Select-Object -First 1
-    $cert | fl * | out-string | Write-Verbose -Verbose
+    $cert | Format-List * | out-string | Write-Verbose
 
     <# dir "$pshome\pwsh.exe" | Set-AuthenticodeSignature -Certificate $cert #>
 
-    Add-SignerRule –FilePath $policyXml –CertificatePath c:\certs\signing.cer -User
+    Add-SignerRule -FilePath $policyXml -CertificatePath c:\certs\signing.cer -User
 
-    ConvertFrom-CIPolicy -XmlFilePath $policyXml -BinaryFilePath .\SIPolicy.p7b
+    $null = ConvertFrom-CIPolicy -XmlFilePath $policyXml -BinaryFilePath .\SIPolicy.p7b
 
-    Copy-item .\SIPolicy.p7b C:\Windows\System32\CodeIntegrity
+    citool --update-policy .\SIPolicy.p7b -json
 }
 
-function Test-IsElevated
-{
+Function Set-AuthenticodeSignatureForCiPolicy {
+    param($Path)
+
+    $cert = Get-ChildItem Cert:\CurrentUser\My\ -CodeSigningCert | Select-Object -First 1
+    $cert | fl * | out-string | Write-Verbose -Verbose
+
+    Set-AuthenticodeSignature -Certificate $cert -FilePath $Path
+}
+
+function Test-IsElevated {
     $IsElevated = $false
     if ( $IsWindows ) {
         # on Windows we can determine whether we're executing in an
         # elevated context
         $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
         $windowsPrincipal = New-Object 'Security.Principal.WindowsPrincipal' $identity
-        if ($windowsPrincipal.IsInRole("Administrators") -eq 1)
-        {
+        if ($windowsPrincipal.IsInRole("Administrators") -eq 1) {
             $IsElevated = $true
         }
     }
