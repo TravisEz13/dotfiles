@@ -199,7 +199,12 @@ if (Get-CommandFast -Name starship -CommandType Application) {
     }
 }
 else {
-    Write-Warning "Please install starship"
+    if (get-commandfast -name winget -commandtype Application) {
+        winget install starship
+    }
+    else {
+        Write-Warning "Please install starship"
+    }
 }
 
 #region Helper functions

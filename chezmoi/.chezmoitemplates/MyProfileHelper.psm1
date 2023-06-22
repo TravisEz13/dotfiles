@@ -480,3 +480,52 @@ function Invoke-PingPath {
         $doneCount++
     }
 }
+
+function New-CITestPolicy {
+    if(!(Test-IsElevated) ) {
+        throw "Must be run elevated"
+    }
+    
+    $policyXml = '.\SystemCIPolicy.xml'
+    #New-CIPolicy -Level PcaCertificate -FilePath $policyXml -UserPEs -Audit:$false
+    Set-RuleOption -FilePath $policyXml -Option 3 -Delete
+
+    $cert = New-SelfSignedCertificate -DnsName $env:COMPUTERNAME -CertStoreLocation "Cert:\CurrentUser\My\" -Type CodeSigningCert
+    if(!(Test-Path C:\certs)) {
+        $null = new-item -itemType Directory -Path C:\certs
+    }
+    Export-Certificate -Cert $cert -FilePath c:\certs\signing.cer
+    Import-Certificate -FilePath C:\certs\signing.cer -CertStoreLocation "Cert:\CurrentUser\Root\"
+    $cert = Get-ChildItem Cert:\CurrentUser\My\ -CodeSigningCert | Select-Object -First 1
+    $cert | fl * | out-string | Write-Verbose -Verbose
+
+    <# dir "$pshome\pwsh.exe" | Set-AuthenticodeSignature -Certificate $cert #>
+
+    Add-SignerRule –FilePath $policyXml –CertificatePath c:\certs\signing.cer -User
+
+    ConvertFrom-CIPolicy -XmlFilePath $policyXml -BinaryFilePath .\SIPolicy.p7b
+
+    Copy-item .\SIPolicy.p7b C:\Windows\System32\CodeIntegrity
+}
+
+function Test-IsElevated
+{
+    $IsElevated = $false
+    if ( $IsWindows ) {
+        # on Windows we can determine whether we're executing in an
+        # elevated context
+        $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $windowsPrincipal = New-Object 'Security.Principal.WindowsPrincipal' $identity
+        if ($windowsPrincipal.IsInRole("Administrators") -eq 1)
+        {
+            $IsElevated = $true
+        }
+    }
+    else {
+        # on Linux, tests run via sudo will generally report "root" for whoami
+        if ( (whoami) -match "root" ) {
+            $IsElevated = $true
+        }
+    }
+    return $IsElevated
+}
