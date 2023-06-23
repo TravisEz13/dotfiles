@@ -22,8 +22,8 @@
   </Rules>
   <EKUs />
   <FileRules>
-    <Allow ID="ID_ALLOW_PATH_0_0_1" FriendlyName="Allow by path: %OSDRIVE%\Program Files\*" FilePath="%OSDRIVE%\Program Files\*" />
-    <Allow ID="ID_ALLOW_PATH_1_0_1" FriendlyName="Allow by path: %OSDRIVE%\Users\tplunk\wdac\*" FilePath="%OSDRIVE%\Users\tplunk\wdac\*" />
+    <!--Allow ID="ID_ALLOW_PATH_0_0_1" FriendlyName="Allow by path: %OSDRIVE%\Program Files\*" FilePath="%OSDRIVE%\Program Files\*" />
+    <Allow ID="ID_ALLOW_PATH_1_0_1" FriendlyName="Allow by path: %OSDRIVE%\Users\tplunk\wdac\*" FilePath="%OSDRIVE%\Users\tplunk\wdac\*" /-->
   </FileRules>
   <Signers>
     <Signer Name="Microsoft Windows Production PCA 2011" ID="ID_SIGNER_S_2_0_0_0_0_0_0">
