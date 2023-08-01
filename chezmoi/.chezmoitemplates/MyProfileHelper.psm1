@@ -508,3 +508,47 @@ function ConvertFrom-JWTtoken {
 
     return $tokobj
 }
+
+function Invoke-InitCache {
+    $env:home = $home
+    $cacheRoot = "$env:home\Documents\windowspowershell"
+    if(!(Test-Path $cacheRoot)) {
+        $null = new-item -Path "$env:home\Documents\windowspowershell" -ItemType Directory
+    }
+}
+function Get-PVForecast {
+    Invoke-InitCache
+    $pvCacheExpiration = Import-Cache -container 'PvForecastExpiration'
+    if ($pvCacheExpiration -and $pvCacheExpiration -gt (Get-Date)) {
+        $est = (Import-Cache -container 'PvForecast')
+    }
+    else {
+
+        $headers = @{ Authorization = "Bearer $(Get-Secret -Name solcast -AsPlainText)" }
+        $est = Invoke-RestMethod -Uri "https://api.solcast.com.au/rooftop_sites/$(Get-Secret -Name solcastSite -AsPlainText)/forecasts?format=json" -Headers $headers
+        $est.forecasts | ForEach-Object {
+            $estimate = $_
+            $_.period_end.ToLocalTime() |
+            ForEach-Object {
+                Add-Member -NotePropertyName local_period_end -NotePropertyValue $_ -InputObject $estimate
+            }
+        }
+
+        export-Cache -container 'PvForecast' -data $est
+        export-Cache -container 'PvForecastExpiration' -data ((get-date).AddDays(1))
+    }
+
+    $now = Get-Date
+    $est.forecasts | Where-Object { $_.local_period_end -ge $now }
+}
+
+function Show-PVForecast {
+    if (!(Get-Module -ListAvailable poshtml5 -ErrorAction SilentlyContinue)) {
+        Install-Module poshtml5
+    }
+    $est = Get-PVForecast
+    $html = New-PWFPage -Title "Solar Production Estimates" -Charset UTF8 -Container -DarkTheme -Content { New-PWFChart -ChartType line -ChartValues ($est | Select-Object -ExpandProperty pv_estimate) -ChartTitle 'estimated kWh' -ChartLabels $est.local_period_end -DontShowTitle }
+    $pagePath = 'temp:/PvEstChart.html'
+    $html | out-file $pagePath
+    & '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge' ((resolve-path $pagePath).ProviderPath)
+}
