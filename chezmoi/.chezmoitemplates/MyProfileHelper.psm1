@@ -546,7 +546,8 @@ function Show-PVForecast {
     if (!(Get-Module -ListAvailable poshtml5 -ErrorAction SilentlyContinue)) {
         Install-Module poshtml5
     }
-    $est = Get-PVForecast
+
+    $est = Get-PVForecast  | Where-Object { $_.pv_estimate -gt 0.1 } | select-object -First 48
     $html = New-PWFPage -Title "Solar Production Estimates" -Charset UTF8 -Container -DarkTheme -Content { New-PWFChart -ChartType line -ChartValues ($est | Select-Object -ExpandProperty pv_estimate) -ChartTitle 'estimated kWh' -ChartLabels $est.local_period_end -DontShowTitle }
     $pagePath = 'temp:/PvEstChart.html'
     $html | out-file $pagePath
