@@ -542,6 +542,66 @@ function Get-PVForecast {
     $est.forecasts | Where-Object { $_.local_period_end -ge $now }
 }
 
+function Get-PVMonthlyForecast {
+    param(
+        [double] $Latitude,
+        [double] $Longitude,
+        [int] $Tilt,
+        [int] $Azimuth,
+        [switch] $Refresh
+    )
+
+    Invoke-InitCache
+    $pvCacheExpiration = Import-Cache -container 'PvMonthlyForecastExpiration'
+    if ($pvCacheExpiration -and $pvCacheExpiration -gt (Get-Date) -and !$Refresh) {
+        $est = (Import-Cache -container 'PvMonthlyForecast')
+    }
+    else {
+
+        $headers = @{ Authorization = "Bearer $(Get-Secret -Name solcast -AsPlainText)" }
+
+
+        $urlFormat = 'https://api.solcast.com.au/monthly_averages?latitude={0:f3}&longitude={1:f3}&timezone=-8&output_parameters=null&array_type=fixed&array_tilt={2}&array_azimuth={3}&format=json'
+        $url = $urlFormat -f $Latitude, $Longitude, $tilt, $Azimuth
+        Write-Verbose -Verbose "url:$url"
+        $est = Invoke-RestMethod $url -Headers $headers
+
+        export-Cache -container 'PvMonthlyForecast' -data $est
+        export-Cache -container 'PvMonthlyForecastExpiration' -data ((get-date).AddDays(1))
+    }
+
+    return $est
+}
+
+function Get-PVEstimatedActuals {
+    param(
+        [switch]
+        $Refresh
+    )
+    Invoke-InitCache
+    $pvCacheExpiration = Import-Cache -container 'PvEstActualsExpiration'
+    if ($pvCacheExpiration -and $pvCacheExpiration -gt (Get-Date) -and !$Refresh) {
+        $est = (Import-Cache -container 'PvEstActuals')
+    }
+    else {
+
+        $headers = @{ Authorization = "Bearer $(Get-Secret -Name solcast -AsPlainText)" }
+        $est = Invoke-RestMethod -Uri "https://api.solcast.com.au/rooftop_sites/$(Get-Secret -Name solcastSite -AsPlainText)/estimated_actuals?format=json" -Headers $headers
+        $est.estimated_Actuals | ForEach-Object {
+            $estimate = $_
+            $_.period_end.ToLocalTime() |
+            ForEach-Object {
+                Add-Member -NotePropertyName local_period_end -NotePropertyValue $_ -InputObject $estimate
+            }
+        }
+
+        export-Cache -container 'PvEstActuals' -data $est
+        export-Cache -container 'PvEstActualsExpiration' -data ((get-date).AddDays(1))
+    }
+
+    $est.estimated_Actuals | Sort-Object -Property local_period_end
+}
+
 function Show-PVForecast {
     if (!(Get-Module -ListAvailable poshtml5 -ErrorAction SilentlyContinue)) {
         Install-Module poshtml5
@@ -550,6 +610,18 @@ function Show-PVForecast {
     $est = Get-PVForecast  | Where-Object { $_.pv_estimate -gt 0.1 } | select-object -First 48
     $html = New-PWFPage -Title "Solar Production Estimates" -Charset UTF8 -Container -DarkTheme -Content { New-PWFChart -ChartType line -ChartValues ($est | Select-Object -ExpandProperty pv_estimate) -ChartTitle 'estimated kWh' -ChartLabels $est.local_period_end -DontShowTitle }
     $pagePath = 'temp:/PvEstChart.html'
+    $html | out-file $pagePath
+    & '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge' ((resolve-path $pagePath).ProviderPath)
+}
+
+function Show-PVEstimatedActuals {
+    if (!(Get-Module -ListAvailable poshtml5 -ErrorAction SilentlyContinue)) {
+        Install-Module poshtml5
+    }
+
+    $est = Get-PVEstimatedActuals  | Where-Object { $_.pv_estimate -gt 0.1 } | select-object -First 48
+    $html = New-PWFPage -Title "Solar Production Estimates" -Charset UTF8 -Container -DarkTheme -Content { New-PWFChart -ChartType line -ChartValues ($est | Select-Object -ExpandProperty pv_estimate) -ChartTitle 'estimated kWh' -ChartLabels $est.local_period_end -DontShowTitle }
+    $pagePath = 'temp:/PvEstActualChart.html'
     $html | out-file $pagePath
     & '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge' ((resolve-path $pagePath).ProviderPath)
 }
