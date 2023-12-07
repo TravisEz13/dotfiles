@@ -108,6 +108,8 @@ if (!$IsWindows) {
         $env:HOMEBREW_EDITOR='code -w'
         $env:EDITOR='code -w'
         $env:XDG_CONFIG_HOME = ((Resolve-Path '~/.config/').ProviderPath)
+
+        ssh-add --apple-use-keychain
     }
 
     function script:precheck

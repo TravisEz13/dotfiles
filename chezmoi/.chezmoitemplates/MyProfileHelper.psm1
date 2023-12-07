@@ -625,3 +625,14 @@ function Show-PVEstimatedActuals {
     $html | out-file $pagePath
     & '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge' ((resolve-path $pagePath).ProviderPath)
 }
+
+function invoke-OcrMyPDF {
+    param(
+        $Path
+    )
+    Get-ChildItem -Path $Path -Filter *.pdf -Recurse | ForEach-Object {
+        $name = $_.FullName
+        Write-Verbose -Verbose $name
+        ocrmypdf -O1 --clean $name $name
+    }
+}
