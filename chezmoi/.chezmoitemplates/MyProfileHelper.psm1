@@ -151,6 +151,14 @@ function ConvertFrom-Base64 {
     return [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($InputObject))
 }
 
+function Set-ICloudLocation {
+    [alias('cdicloud')]
+    [CmdletBinding(DefaultParameterSetName = 'Path', HelpUri = 'https://go.microsoft.com/fwlink/?LinkID=2097049')]
+    param(
+    )
+
+    Push-Location "~/Library/Mobile Documents/com~apple~CloudDocs/"
+}
 
 function Set-GitLocation {
     [alias('cdgit')]
@@ -626,13 +634,38 @@ function Show-PVEstimatedActuals {
     & '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge' ((resolve-path $pagePath).ProviderPath)
 }
 
-function invoke-OcrMyPDF {
+function Invoke-OcrMyPDF {
     param(
-        $Path
+        $Path,
+        [switch]
+        $Rotate,
+        [double]
+        $RotateThreshold = 0,
+        [switch]
+        $ForceOcr
     )
+
     Get-ChildItem -Path $Path -Filter *.pdf -Recurse | ForEach-Object {
         $name = $_.FullName
         Write-Verbose -Verbose $name
-        ocrmypdf -O1 --clean $name $name
+        $arguments = @(
+            '-O1'
+            '--clean'
+        )
+        if ($Rotate) {
+            $arguments += '--rotate-pages'
+        }
+        if ($RotateThreshold -ne 0 -and $Rotate) {
+            $arguments += @(
+                '--rotate-pages-threshold'
+                $RotateThreshold
+            )
+        }
+        if ($ForceOcr) {
+            $arguments += '--force-ocr'
+        }
+        Write-Verbose -Verbose "Running: ocrmypdf $arguments <fileparams>"
+        ocrmypdf $arguments $name $name
     }
 }
+

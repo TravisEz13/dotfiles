@@ -3,3 +3,4 @@
 
 # I don't think I need to carry caches along
 **/*[cC]ache*
+chezmoi/.DS_Store

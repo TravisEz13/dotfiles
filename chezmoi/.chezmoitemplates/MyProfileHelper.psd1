@@ -94,10 +94,12 @@ FunctionsToExport = @(
     'Set-AuthenticodeSignatureForCiPolicy'
     'Set-ConstrainedLanguageMode'
     'Set-GitLocation'
+    'Set-ICloudLocation'
     'Test-Spelling'
     'Show-PVForecast'
     'Get-PVEstimatedActuals'
     'Show-PVEstimatedActuals'
+    'Invoke-OcrMyPDF'
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
@@ -110,6 +112,7 @@ CmdletsToExport = @()
 AliasesToExport = @(
     'Cleanup-AzResourceGroup'
     'cdgit'
+    'cdicloud'
     'git?'
     'gh?'
     'wts'

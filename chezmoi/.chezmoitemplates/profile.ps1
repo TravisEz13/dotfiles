@@ -85,6 +85,11 @@ if (!$IsWindows) {
     }
 
     if ($IsMacOS) {
+        $machineArch = machine
+        $processArch = arch
+        if ($machineArch -like 'arm64*' -and $processArch -eq 'i386') {
+            Write-Verbose -Verbose "Architecture mismatch.  machine: $machineArch; process: $processArch"
+        }
         if ($env:PATH -notmatch '\b/usr/local/bin\b') {
             # prevent repeated replacement of $env:PATH
             function setenv ($variable, $value) { [Environment]::SetEnvironmentVariable($variable, $value)  }
@@ -101,6 +106,9 @@ if (!$IsWindows) {
                     Write-Verbose "Updating env: $_ "
                     Invoke-Expression $_
                 }
+            }
+            if (!(Get-CommandFast -Name zoxide)) {
+                invoke-expression (&{zoxide init --cmd cd powershell  | out-string})
             }
         }
 
