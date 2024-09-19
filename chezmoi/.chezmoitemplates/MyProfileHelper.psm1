@@ -692,7 +692,8 @@ function Publish-AzStorageFolderToStaticWeb {
 function Invoke-CleanupDownloads {
 
     # Define the Downloads folder path
-    $downloadsPath = "$env:USERPROFILE\Downloads"
+    $downloadsPath = [Environment]::GetFolderPath("UserProfile") + "/Downloads"
+    Write-Verbose "downloadsPath: $downloadsPath" -Verbose
 
     # Define the scoring function
     function Get-FileScore {
@@ -717,7 +718,7 @@ function Invoke-CleanupDownloads {
         $score = Get-FileScore -file $file
         if ($score -gt $scoreThreshold) {
             Remove-Item -Path $file.FullName -Force
-            Write-Output "Deleted $($file.FullName) with score $score"
+            Write-Verbose -Verbose "Deleted $($file.FullName) with score $score"
         }
     }
 
@@ -726,7 +727,7 @@ function Invoke-CleanupDownloads {
     foreach ($folder in $folders) {
         if (-not (Get-ChildItem -Path $folder.FullName)) {
             Remove-Item -Path $folder.FullName -Force
-            Write-Output "Deleted empty folder $($folder.FullName)"
+            Write-Verbose -Verbose "Deleted empty folder $($folder.FullName)"
         }
     }
 }
