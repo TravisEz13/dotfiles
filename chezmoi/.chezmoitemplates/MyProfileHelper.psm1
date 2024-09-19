@@ -669,3 +669,64 @@ function Invoke-OcrMyPDF {
     }
 }
 
+function Publish-AzStorageFolderToStaticWeb {
+    throw "not really implemented"
+
+    $storageAccountName = 'account'
+    $filter = '7.2.20*'
+    $srcContainerName = 'tool'
+    $newPrefix = $srcContainerName
+    $publishContainer = '$web'
+
+    $ctx = New-AzStorageContext -StorageAccountName $storageAccountName
+    $srcBlob = Get-AzStorageBlob -Container $srcContainerName   -Context $ctx
+    $srcBlob | Where-Object { $_.name -like $filter } | % { [pscustomObject]@{old = $_.name; new = "$newPrefix/$($_.name)" } }
+    | % {
+        $dest = $_.new
+        $src = $_.old
+        Write-Verbose -Verbose "Copying tool/$src to `$web/$dest"
+        Copy-AzStorageBlob -DestContainer $publishContainer  -DestBlob $dest -SrcContainer $srcContainerName  -SrcBlob $src  -Context $ctx  -verbose -confirm:$true
+    }
+}
+
+function Invoke-CleanupDownloads {
+
+    # Define the Downloads folder path
+    $downloadsPath = "$env:USERPROFILE\Downloads"
+
+    # Define the scoring function
+    function Get-FileScore {
+        param (
+            [System.IO.FileInfo]$file
+        )
+        $ageInDays = (Get-Date) - $file.LastWriteTime
+        $sizeInMB = $file.Length / 1MB
+        # Calculate score (you can adjust the formula as needed)
+        $score = ($ageInDays.TotalDays * 0.5) + ($sizeInMB * 0.5)
+        return $score
+    }
+
+    # Get all files in the Downloads folder
+    $files = Get-ChildItem -Path $downloadsPath -File -Recurse
+
+    # Define the score threshold for deletion
+    $scoreThreshold = 100
+
+    # Delete files with a score above the threshold
+    foreach ($file in $files) {
+        $score = Get-FileScore -file $file
+        if ($score -gt $scoreThreshold) {
+            Remove-Item -Path $file.FullName -Force
+            Write-Output "Deleted $($file.FullName) with score $score"
+        }
+    }
+
+    # Remove empty folders
+    $folders = Get-ChildItem -Path $downloadsPath -Directory -Recurse
+    foreach ($folder in $folders) {
+        if (-not (Get-ChildItem -Path $folder.FullName)) {
+            Remove-Item -Path $folder.FullName -Force
+            Write-Output "Deleted empty folder $($folder.FullName)"
+        }
+    }
+}

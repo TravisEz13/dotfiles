@@ -107,9 +107,10 @@ if (!$IsWindows) {
                     Invoke-Expression $_
                 }
             }
-            if (!(Get-CommandFast -Name zoxide)) {
+        }
+        if ((Get-CommandFast -Name zoxide)) {
+            Write-Verbose -Verbose "loading zoxide ..."
                 invoke-expression (&{zoxide init --cmd cd powershell  | out-string})
-            }
         }
 
         $env:PATH="${env:PATH}:/Users/travisplunk/.dotnet/tools"
