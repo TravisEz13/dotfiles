@@ -5,38 +5,19 @@ format = """
 $username\
 $hostname\
 $shlvl\
-$kubernetes\
 $directory\
 $git_branch\
 $git_commit\
 $git_state\
 $git_metrics\
 $git_status\
-$docker_context\
 $package\
 $dotnet\
-$golang\
-$helm\
-$nodejs\
-$java\
-$kotlin\
-$php\
-$python\
-$rlang\
-$ruby\
-$swift\
-$terraform\
-$vagrant\
-$conda\
 $memory_usage\
-$openstack\
-$custom\
 $cmd_duration\
 $line_break\
-$jobs\
-$battery\
 $status\
-${custom.architecture}\
+${custom.arch}\
 $character"""
 
 # Inserts a blank line between shell prompts
@@ -50,11 +31,11 @@ success_symbol = '[❯](bold green)' # The 'success_symbol' segment is being set
 [package]
 disabled = true
 
-[custom.architecture]
-description = "Architecture when using Rosetta 2"
-when = """[ "$(sysctl -in sysctl.proc_translated)" = "1" ]"""
-format = "[ Rosetta ](242)"
-shell = ["bash", "--noprofile", "--norc"]
+# [custom.architecture]
+# description = "Architecture when using Rosetta 2"
+# when = """[ "$(sysctl -in sysctl.proc_translated)" = "1" ]"""
+# format = "[ Rosetta ](242)"
+# shell = ["bash", "--noprofile", "--norc"]
 
 [custom.arch]
 command = "echo $(arch)"
