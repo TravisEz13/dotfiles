@@ -45,6 +45,8 @@ if ($psversiontable.psversion.major -ge 7) {
 }
 
 if (!$IsWindows) {
+    Write-Verbose -Verbose "not windows ..."
+
     if (test-path /opt/homebrew/bin/brew) {
         $sb = $(/opt/homebrew/bin/brew shellenv)
         ForEach ($line in $sb) {
@@ -85,6 +87,7 @@ if (!$IsWindows) {
     }
 
     if ($IsMacOS) {
+        Write-Verbose -Verbose "macos ..."
         $machineArch = machine
         $processArch = arch
         if ($machineArch -like 'arm64*' -and $processArch -eq 'i386') {
@@ -118,7 +121,7 @@ if (!$IsWindows) {
         $env:EDITOR='code -w'
         $env:XDG_CONFIG_HOME = ((Resolve-Path '~/.config/').ProviderPath)
 
-        ssh-add --apple-use-keychain
+#        ssh-add --apple-use-keychain
     }
 
     function script:precheck
@@ -414,3 +417,12 @@ function New-MultipassIntance
 # git config --global alias.pushf "push --force-with-lease"
 # git config --global alias.discard "checkout --"
 # git config --global alias.logoneline "log --pretty=oneline"
+if (test-path /run/current-system/sw/bin) {
+    $env:PATH = $env:PATH + ':/run/current-system/sw/bin'
+}
+
+if ( Get-CommandFast -Name direnv -CommandType Application) {
+    Write-Verbose "loading direnv ..." -Verbose
+    Invoke-Expression "$(direnv hook pwsh)"
+    Invoke-Expression "$(direnv export pwsh)"
+}
