@@ -39,6 +39,16 @@ function Get-CommandFast {
     }
 }
 
+if (test-path /run/current-system/sw/bin) {
+    $env:PATH = $env:PATH + ':/run/current-system/sw/bin'
+}
+
+if ( Get-CommandFast -Name direnv -CommandType Application) {
+    Write-Verbose "loading direnv ..." -Verbose
+    Invoke-Expression "$(direnv hook pwsh)"
+    Invoke-Expression "$(direnv export pwsh)"
+}
+
 #Enable concise errorview for PS7 and up
 if ($psversiontable.psversion.major -ge 7) {
     $ErrorView = 'ConciseView'
@@ -417,12 +427,3 @@ function New-MultipassIntance
 # git config --global alias.pushf "push --force-with-lease"
 # git config --global alias.discard "checkout --"
 # git config --global alias.logoneline "log --pretty=oneline"
-if (test-path /run/current-system/sw/bin) {
-    $env:PATH = $env:PATH + ':/run/current-system/sw/bin'
-}
-
-if ( Get-CommandFast -Name direnv -CommandType Application) {
-    Write-Verbose "loading direnv ..." -Verbose
-    Invoke-Expression "$(direnv hook pwsh)"
-    Invoke-Expression "$(direnv export pwsh)"
-}

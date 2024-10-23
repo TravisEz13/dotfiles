@@ -17,7 +17,6 @@ $memory_usage\
 $cmd_duration\
 $line_break\
 $status\
-${custom.arch}\
 $character"""
 
 # Inserts a blank line between shell prompts
@@ -37,10 +36,10 @@ disabled = true
 # format = "[ Rosetta ](242)"
 # shell = ["bash", "--noprofile", "--norc"]
 
-[custom.arch]
-command = "echo $(arch)"
-description = "Current Process CPU Architecture"
-when = "true"
-os = "macos"
-symbol = "🖥"
-format = "\\($symbol  $output\\)"
+# [custom.arch]
+# command = "echo $(arch)"
+# description = "Current Process CPU Architecture"
+# when = "true"
+# os = "macos"
+# symbol = "🖥"
+# format = "\\($symbol  $output\\)"
