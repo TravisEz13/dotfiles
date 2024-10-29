@@ -397,6 +397,32 @@ class PingPathResult {
 
     [UInt32]
     $Count
+
+    [UInt32]
+    $FailedCount
+
+    [void] Resolve([string]$Message='default') {
+        if($this.Target -eq '*') {
+            $this.IsResolved = $true
+            return
+        }
+        Write-Verbose -Message "resolving ($Message) $($this.Target)"
+        $this.ResolvedTarget = dig -x $this.Target +noall +answer +nocomments |
+            Where-Object { $_ -match '^[^;]' } |
+            ForEach-Object { ($_ -split '[ \t]')[4] }
+        $this.IsResolved = $true
+    }
+
+    [bool]
+    $IsResolved = $false
+}
+
+class PingPathData {
+    [datetime]
+    $Expiration
+
+    [string[]]
+    $TargetList
 }
 
 enum InternetProtocol {
@@ -404,74 +430,211 @@ enum InternetProtocol {
     IPv6
 }
 
-function Invoke-PingPath {
+[System.Collections.Generic.Dictionary[String,PingPathResult]]$script:ResultCache = [System.Collections.Generic.Dictionary[String,PingPathResult]]::new();
+
+function Merge-PingPath {
+    [CmdletBinding()]
+    param(
+        [PingPathResult[]]
+        $ResultToMerge
+    )
+
+    [PingPathResult[]]$newResults = @()
+
+    if($ResultToMerge.Count -eq 0) {
+        throw "no results to merge"
+    }
+
+    foreach($result in $ResultToMerge) {
+        $target= $result.Target
+        if ($script:ResultCache.ContainsKey($target)) {
+            $existingResult = $script:ResultCache[$target]
+            $totalCount = $existingResult.Count + $result.Count
+            $totalFailedCount = $existingResult.FailedCount + $result.FailedCount
+
+            if ($totalCount -gt 0) {
+                $existingResult.lossRate = 100 * $totalFailedCount / $totalCount
+            }
+            $existingResult.Count = $totalCount
+            $newResults += $existingResult
+            $script:ResultCache[$target] = $existingResult
+        }
+        else {
+            $script:ResultCache[$target] = $result
+            $newResults += $result
+        }
+    }
+    foreach ($result in $newResults) {
+        if (!$result.IsResolved) {
+            $result.Resolve('Merge')
+        }
+    }
+
+    return $newResults
+}
+
+[System.Collections.Generic.Dictionary[string, PingPathData]]$script:PingPathCache = [System.Collections.Generic.Dictionary[string, PingPathData]]::new();
+[int]$script:PingPathCacheExpirationMinutes = 1
+function Get-PingPathData {
+    [CmdletBinding()]
     param(
         [string]
         $TargetName,
-        [ValidateScript({ $_ -gt 0 })]
-        [uint]
-        $Count = 25,
+
         [InternetProtocol]
         $Protocol = [InternetProtocol]::IPv6
     )
-    $activityName = "Ping path"
 
-    Update-FormatData -AppendPath $PSScriptRoot\PingPathResult.format.ps1xml
+    if ($script:PingPathCache.ContainsKey($TargetName)) {
+        [PingPathData]$cacheData = $script:PingPathCache[$TargetName]
+        $targets = $cacheData.TargetList
+        if ($cacheData.Expiration -gt (Get-Date)) {
+            return $targets
+        }
+        else {
+            $null=$script:PingPathCache.Remove($TargetName)
+        }
+    }
 
     switch ($Protocol) {
         "IPv6" {
             $traceCommand = 'traceroute6'
         }
         "IPv4" {
-            $traceCommand = 'traceroute4'
+            $traceCommand = 'traceroute'
         }
         default {
             throw "unknown protocol $Protocol"
         }
     }
 
+    $activityName = "Finding ping Path"
+
     Write-Progress -Activity $activityName -Status "Finding Path to $TargetName ..." -PercentComplete 0
     if ($IsMacOs) {
-        $trStrings = &$traceCommand -I -q 1 -w 1 -n $TargetName 2>&1 |
+        $rawTrStrings = &$traceCommand -I -q 1 -w 1 -n $TargetName 2>&1
+        if($LASTEXITCODE -ne 0) {
+            Write-Warning ($rawTrStrings -join "`n")
+        }
+        $trStrings = $rawTrStrings |
         Where-Object { $_ -match '^\s?\d+\s+' }
+        Write-Verbose -Message "rawTrStrings: $rawTrStrings"
     }
 
-    $doneCount = 0
-    $hostCount = $trStrings.count
-    $trStrings | ForEach-Object {
+    Write-Verbose -Message "trStrings: $trStrings"
+
+    [string[]]$targets = $trStrings | ForEach-Object {
         $null = $_ -match '^\s?\d+\s+([^\s]*)'
-        $target = $matches[1]
-        $ping = @()
-        if ($target -ne '*') {
-            Write-Progress -Activity $activityName -Status "Finding loss rate to $target ..." -PercentComplete (100 * $doneCount / $hostCount)
-            if ($Protocol -eq [InternetProtocol]::IPv4) {
-                $escapedTarget = $target
+        $target = $Matches[1]
+        Write-Output $target
+    }
+
+    Write-Progress -Activity $activityName -Status "Finding Path to $TargetName ..." -PercentComplete 100 -Completed
+
+    [PingPathData]$data = [PingPathData]@{
+        Expiration = (Get-Date).AddMinutes($script:PingPathCacheExpirationMinutes)
+        TargetList = $targets
+    }
+
+    $script:PingPathCache[$TargetName] = $data
+    return $targets
+}
+
+function Invoke-PingPath {
+    [CmdletBinding()]
+    param(
+        [string]
+        $TargetName,
+
+        [ValidateScript({ $_ -gt 0 })]
+        [uint]
+        $Count = 25,
+
+        [InternetProtocol]
+        $Protocol = [InternetProtocol]::IPv6,
+
+        [switch] $Continuous,
+
+        [switch] $NoProgress,
+
+        [switch] $NoResolve,
+
+        [int] $PathRefreshMinutes = 1
+    )
+
+    if ($Continuous) {
+        $script:PingPathCacheExpirationMinutes = $PathRefreshMinutes
+        $null = Get-PingPathData -TargetName $TargetName -Protocol $Protocol
+        $lastProgressPreference = $local:ProgressPreference
+        $local:ProgressPreference = 'SilentlyContinue'
+        try {
+            $count = 1
+            while ($true) {
+                $currentResult = Invoke-PingPath -TargetName $TargetName -Count $count -Protocol $Protocol -NoProgress -NoResolve
+                $mergedResults = Merge-PingPath -ResultToMerge $currentResult
+                $output = $mergedResults | Format-Table | out-string
+                Clear-Host
+                Write-Host $output
+                if($count -lt 5) {
+                    $count++
+                }
+                #Start-Sleep -Seconds 2
+            }
+        }
+        finally {
+            $local:ProgressPreference = $lastProgressPreference
+        }
+    }
+    else {
+        $activityName = "Ping path"
+
+        Update-FormatData -AppendPath $PSScriptRoot\PingPathResult.format.ps1xml
+
+        $pathData = Get-PingPathData -TargetName $TargetName -Protocol $Protocol
+
+        $doneCount = 0
+        $hostCount = $pathData.count
+        $pathData | ForEach-Object {
+            $target = $_
+            $ping = @()
+            if ($target -ne '*') {
+                if (!$NoProgress) {
+                    Write-Progress -Activity $activityName -Status "Finding loss rate to $target ..." -PercentComplete (100 * $doneCount / $hostCount)
+                }
+                if ($Protocol -eq [InternetProtocol]::IPv4) {
+                    $escapedTarget = $target
+                }
+                else {
+                    $escapedTarget = "[$target]"
+                }
+
+                $ping = Test-Connection -TargetName $escapedTarget -Count $Count -ErrorAction SilentlyContinue
+                $results = $ping | group-object -Property status
+                $successPings = ($results | Where-Object { $_.name -eq 'success' }).Count
+                $successRate = [float]$successPings / $Count
+                $lossRate = 1 - $successRate
+                $resolvedTarget = dig -x $target +noall +answer +nocomments |
+                Where-Object { $_ -match '^[^;]' } |
+                ForEach-Object { ($_ -split '[ \t]')[4] }
+                [PingPathResult]@{
+                    Target         = $target
+                    LossRate       = $lossRate * 100
+                    ResolvedTarget = $resolvedTarget
+                    Count          = $Count
+                    FailedCount    = $Count - $successPings
+                } | ForEach-Object {
+                    if(!$NoResolve){
+                        $_.Resolve('Invoke')
+                    }
+                    $_ }| Write-Output
             }
             else {
-                $escapedTarget = "[$target]"
+                [PingPathResult]@{
+                    Target = $target
+                } | Write-Output
             }
-            Write-Verbose -Message "Testing: $target ..."
-            $ping = Test-Connection -TargetName $escapedTarget -Count $Count
-            $results = $ping | group-object -Property status
-            $successPings = ($results | Where-Object { $_.name -eq 'success' }).Count
-            $successRate = [float]$successPings / $Count
-            $lossRate = 1 - $successRate
-            $resolvedTarget = dig -x $target +noall +answer +nocomments |
-            Where-Object { $_ -match '^[^;]' } |
-            ForEach-Object { ($_ -split '[ \t]')[4] }
-            [PingPathResult]@{
-                Target         = $target
-                LossRate       = $lossRate * 100
-                ResolvedTarget = $resolvedTarget
-                Count          = $Count
-            } | Write-Output
+            $doneCount++
         }
-        else {
-            [PingPathResult]@{
-                Target = $target
-            } | Write-Output
-        }
-        $doneCount++
     }
 }
 
